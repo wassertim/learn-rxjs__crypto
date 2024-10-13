@@ -5,36 +5,46 @@ import { mapTrade } from '../mappers/maptrade';
 
 export class BTCService {
 
+    ws: WebSocket;
+
+    constructor() {
+        this.ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+        this.ws.on('open', () => {
+            console.log('Connected to Binance WebSocket');
+        });
+        // Handle program termination
+        process.on('SIGINT', () => {
+            this.ws.close();
+            console.log('SIGINT WebSocket connection closed');
+            process.exit();
+        });
+    }
+
     getBTCTrades(): Observable<Trade> {
         const btc$ = new Observable<Trade>(subscriber => {
-            const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
-
-            ws.on('open', () => {
-                console.log('Connected to Binance WebSocket');
-            });
-
-            ws.on('message', (data) => {
+            this.ws.on('message', (data) => {
                 const trade = JSON.parse(data);
 
                 subscriber.next(mapTrade(trade));
             });
 
-            ws.on('error', (error) => {
+            this.ws.on('error', (error) => {
                 subscriber.error(error);
             });
 
-            ws.on('close', () => {
-                console.log('WebSocket connection closed');
+            this.ws.on('close', () => {
+                console.log('Completed');
                 subscriber.complete();
             });
-
-            // Handle program termination
-            process.on('SIGINT', () => {
-                ws.close();
-                process.exit();
-            });
+            return () => {
+                
+            }
         });
-        
+
         return btc$;
+    }
+
+    closeConnection() {
+        this.ws.close();
     }
 }
